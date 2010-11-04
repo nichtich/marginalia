@@ -1,26 +1,41 @@
+/**
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License version 3
+ * as published by the Free Software Foundation.
+ */
 package de.gbv.marginalia;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Iterator;
+
 import jargs.gnu.CmdLineParser;
 
 import com.itextpdf.text.Rectangle;
 
 import com.itextpdf.text.pdf.PdfArray;
+import com.itextpdf.text.pdf.PdfBoolean;
 import com.itextpdf.text.pdf.PdfDictionary;
 import com.itextpdf.text.pdf.PdfName;
+import com.itextpdf.text.pdf.PdfString;
+import com.itextpdf.text.pdf.PdfNumber;
+import com.itextpdf.text.pdf.PdfRectangle;
 import com.itextpdf.text.pdf.PdfObject;
 import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfString;
+
+import com.itextpdf.text.pdf.parser.LocationTextExtractionStrategy;
+import com.itextpdf.text.pdf.parser.PdfTextExtractor;
 
 /**
  * Marginalia command line client.
  *
  * This is just a skeleton that can only parse PDF files and list all 
  * annotations for each page. To extend this script, you need to have 
- * a look at the PDF file format specification.
+ * a look at the PDF file format specification and iText.
  */
 public class Marginalia {
 
@@ -87,32 +102,53 @@ public class Marginalia {
 
             PdfDictionary pageDic = reader.getPageN(pageNum);
 
-            PdfArray annotsArray = pageDic.getAsArray(PdfName.ANNOTS);
-            if ( annotsArray == null || annotsArray.isEmpty() ) {
+            PdfArray rawannots = pageDic.getAsArray(PdfName.ANNOTS);
+            if ( rawannots == null || rawannots.isEmpty() ) {
                 writer.println("page "+pageNum+" contains no annotations");
                 continue;
             }
 
-            writer.println("page "+pageNum+" has "+annotsArray.size()+" annotations");
+            writer.println("page "+pageNum+" has "+rawannots.size()+" annotations");
 
-            for(int i=0; i<annotsArray.size(); i++) {
-                PdfObject obj = annotsArray.getDirectObject(i);
+            Collection annots = new ArrayList();
+
+            for(int i=0; i<rawannots.size(); i++) {
+                PdfObject obj = rawannots.getDirectObject(i);
                 if (!obj.isDictionary()) continue;
-                inspectAnnotation((PdfDictionary)obj, writer);
+
+                Annotation a = new Annotation( (PdfDictionary)obj );
+                annots.add(a);
             }
+
+            /**
+            // Now we have all highlight and similar annotations, we need
+            // to find out what words are actually highlighted! PDF in fact
+            // is a dump format to express documents.
+            // For some hints see
+            // http://stackoverflow.com/questions/4028240/extract-each-column-of-a-pdf-file
+
+            // We could reuse code from LocationTextExtractionStrategy (TODO)
+            // LocationTextExtractionStrategy extr = new LocationTextExtractionStrategy();
+            String fulltext = PdfTextExtractor.getTextFromPage(reader,pageNum);//,extr
+            writer.println(fulltext);
+            */
+
+            Iterator iter = annots.iterator(); 
+            while(iter.hasNext() ) { 
+                Object a = (Annotation)iter.next(); 
+                writer.println( a );
+            }
+
         }
         writer.println();
         writer.flush();
     }
 
-    public static void inspectAnnotation(PdfDictionary annot, PrintWriter out) {
-        //if (!annot.getAsName(PdfName.TYPE).compareTo(PdfName.ANNOT))
-        PdfName subtype = annot.getAsName(PdfName.SUBTYPE);
-        out.println("SUBTYPE: "+subtype);
-        if (subtype.equals(PdfName.TEXT)) {
-            out.println( annot.getAsString(PdfName.CONTENTS) );
+    // helper class (to be removed)
+    public static void dumpArray(PdfArray a) {
+        if (a == null) return;
+        for(int i=0; i<a.size(); i++) {
+            System.out.println( i + a.getPdfObject(i).toString() );
         }
-        // TODO: other annotation types
-        // See PDF reference 1.7 (2006), chapter 8.4, p. 604-647
     }
 }

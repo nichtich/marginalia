@@ -19,29 +19,32 @@ There is free software, open source PDF reader that supports annotations.
 There is no eBook-reader or similar device that is a convenient to use
 to make annotations, as a physical piece of paper and a pen. So far.
 
-PDF annotations are defined in chapter 8.4 of the PDF reference (2006),
-page 604-647. 
-[see here](http://www.verypdf.com/document/pdf-format-reference/pg_0604.htm).
-
 To get into the PDF file format, which in fact is more like a 
 database or a file system, you need PDF parser libraries, like 
 [iText](http://www.itextpdf.com/).
 
+## PDF Reference
+
+[Adobe PDF Reference Archives](http://www.adobe.com/devnet/pdf/pdf_reference_archive.html).
+
+PDF annotations are defined in chapter 8.4 of the PDF reference (2006),
+page 604-647. 
+[see here](http://www.verypdf.com/document/pdf-format-reference/pg_0604.htm).
 
 # Usage
 You need maven2 to compile and run this application. Then try:
 
-  $ mvn assembly:assembly
+    $ mvn assembly:assembly
 
 If you are lucky, maven will install all required dependencies, compile,
 and create a single jar that includes all dependencies. You can run it:
 
-  $ java -jar target/marginalia-0.0.1dev-jar-with-dependencies.jar file.pdf
+    $ java -jar target/marginalia-0.0.1dev-jar-with-dependencies.jar file.pdf
 
 Or try:
 
-  $ mvn compile
-  $ mvn exec:java
+    $ mvn compile
+    $ mvn exec:java -Dexec.args="..."
 
 # Author
 Jakob Voss <jakob.voss@gbv.de>
