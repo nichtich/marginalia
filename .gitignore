@@ -1,0 +1,6 @@
+# temp files
+*~
+*.bak
+
+# build artifacts
+target
