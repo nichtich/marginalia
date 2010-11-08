@@ -34,7 +34,7 @@ page 604-647.
 # Usage
 You need maven2 to compile and run this application. Then try:
 
-    $ mvn assembly:assembly
+    $ mvn assembly:single
 
 If you are lucky, maven will install all required dependencies, compile,
 and create a single jar that includes all dependencies. You can run it:

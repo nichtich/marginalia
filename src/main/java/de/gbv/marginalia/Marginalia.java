@@ -75,11 +75,12 @@ public class Marginalia {
      */
     public static void inspect(PrintWriter writer, String filename)
         throws IOException {
-        writer.println(filename);
+//        writer.println(filename);
         writer.flush();
 
         PdfReader reader = new PdfReader(filename);
 
+/*
         writer.println("Number of pages: "+reader.getNumberOfPages());
         Rectangle mediabox = reader.getPageSize(1);
         writer.print("Size of page 1: [");
@@ -97,6 +98,8 @@ public class Marginalia {
         writer.println(reader.getPageSizeWithRotation(1));
         writer.println();
         writer.flush();
+*/
+        Collection annots = new ArrayList();
 
         for (int pageNum=1; pageNum<=reader.getNumberOfPages(); pageNum++) {
 
@@ -104,18 +107,15 @@ public class Marginalia {
 
             PdfArray rawannots = pageDic.getAsArray(PdfName.ANNOTS);
             if ( rawannots == null || rawannots.isEmpty() ) {
-                writer.println("page "+pageNum+" contains no annotations");
+                // writer.println("page "+pageNum+" contains no annotations");
                 continue;
             }
 
-            writer.println("page "+pageNum+" has "+rawannots.size()+" annotations");
-
-            Collection annots = new ArrayList();
+            // writer.println("page "+pageNum+" has "+rawannots.size()+" annotations");
 
             for(int i=0; i<rawannots.size(); i++) {
                 PdfObject obj = rawannots.getDirectObject(i);
                 if (!obj.isDictionary()) continue;
-
                 Annotation a = new Annotation( (PdfDictionary)obj );
                 annots.add(a);
             }
@@ -132,15 +132,10 @@ public class Marginalia {
             String fulltext = PdfTextExtractor.getTextFromPage(reader,pageNum);//,extr
             writer.println(fulltext);
             */
-
-            Iterator iter = annots.iterator(); 
-            while(iter.hasNext() ) { 
-                Object a = (Annotation)iter.next(); 
-                writer.println( a );
-            }
-
         }
-        writer.println();
+
+        Annotation.writeXFDF( writer, annots );
+
         writer.flush();
     }
 
