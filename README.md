@@ -31,20 +31,29 @@ PDF annotations are defined in chapter 8.4 of the PDF reference (2006),
 page 604-647. 
 [see here](http://www.verypdf.com/document/pdf-format-reference/pg_0604.htm).
 
-# Usage
-You need maven2 to compile and run this application. Then try:
+# Usage of the developer snapshot
 
-    $ mvn assembly:single
+First download, clone or fork the project, e.g.
 
-If you are lucky, maven will install all required dependencies, compile,
-and create a single jar that includes all dependencies. You can run it:
+   $ git clone git://github.com/nichtich/marginalia.git
+   $ cd marginalia
 
-    $ java -jar target/marginalia-0.0.1dev-jar-with-dependencies.jar file.pdf
-
-Or try:
+You need maven2 to compile and run this application. Try
 
     $ mvn compile
-    $ mvn exec:java -Dexec.args="..."
+
+If you are lucky, maven will install all required dependencies and compile.
+You can then run marginalia in the development environment:
+
+    $ mvn exec:java -Dexec.args="yourfile.pdf"
+
+To create a single jar that includes all dependencies, call:
+
+     $ mvn assembly:single
+
+You can then copy the jar file to a place of your choice and run it via:
+
+    $ java -jar target/marginalia-0.0.1dev-jar-with-dependencies.jar yourfile.pdf
 
 # Author
 Jakob Voss <jakob.voss@gbv.de>
