@@ -117,7 +117,7 @@ public class Marginalia {
             for(int i=0; i<rawannots.size(); i++) {
                 PdfObject obj = rawannots.getDirectObject(i);
                 if (!obj.isDictionary()) continue;
-                Annotation a = new Annotation( (PdfDictionary)obj );
+                Annotation a = new Annotation( (PdfDictionary)obj, pageNum );
                 annots.add(a);
             }
 

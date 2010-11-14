@@ -70,5 +70,17 @@ with `x = 52`, `y = 842 - 528.27 = 313`, `W = 233`, `H = 91`.
 
 Sure this should be automized, and it does not cover details.
 
+## Next steps
+
+We could add custom XML elements to fix the ill-designed XFDF format.
+The following format could also include the extracted text.
+
+	<highlight ...>
+	  <m:text>...</m:text>
+	  <m:quad x1="" x1="" y1="" x2="" y2="" x3="" y3="" x4="" y4="">...</m:quad>
+	  <m:quad x1="" x1="" y1="" x2="" y2="" x3="" y3="" x4="" y4="">...</m:quad>
+	  ...
+	</highlight>
+
 # Author
 Jakob Voss <jakob.voss@gbv.de>

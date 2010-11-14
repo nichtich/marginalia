@@ -36,31 +36,28 @@ public class Annotation {
 
     // mandatory fields
     protected PdfName subtype;
-    protected PdfRectangle rect;
-    protected PdfNumber page;
 
     // optional fields
     protected PdfString content;
-    protected PdfNumber flags;
-    protected PdfDictionary borderstyle;
-    protected PdfArray border;
-    protected PdfArray rgb;
-
     protected PdfArray coords;
+
+	protected int pageNum;
 
     /**
      * Constructs a new Annotation from a given PdfDictionary.
      * Of course the PdfDictionary should contain an annotation.
      */
-    public Annotation(PdfDictionary annot) {
+    //public Annotation(PdfDictionary annot) { this.Annotation(annot,0); }
+    public Annotation(PdfDictionary annot, int pageNum) {
+		this.pageNum = pageNum;
         this.subtype  = annot.getAsName(PdfName.SUBTYPE);
 // text | caret | freetext | fileattachment | highlight | ink | line | link | circle | square |
 // polygon | polyline | sound | squiggly | stamp | strikeout | underline 
 
         this.content  = annot.getAsString(PdfName.CONTENTS); // optional
 
-        // skipped fields:
-        // getAsDictionary(annot,PdfName.AP);
+        // TODO: skipped fields:
+        // getAsDictionary(annot,PdfName.AP); // alternative to coords!
         // annot.getAsName(PdfName.AS);
         // getAsDictionary(annot,PdfName.A); // action
         // getAsDictionary(annot,PdfName.A); // additional action
@@ -138,6 +135,42 @@ public class Annotation {
         }
     }
 
+    /**
+     * Stores a QuadPoint.
+     * Obviously someone did not understand XML when specifying XFDF.
+     */
+    public static class QuadPoint {
+        protected float c[];
+        QuadPoint(float c[]) { this.c = c; }
+        public String toString() {
+            return c[0]+","+c[1]+","+c[2]+","+c[3]+","
+                 + c[4]+","+c[5]+","+c[6]+","+c[7];
+        }
+    }
+
+    public static class CoordsField extends Field {
+        CoordsField(String attr, String name) { super(attr, name); }
+        public String getFrom( PdfDictionary dict ) {
+            PdfArray array = dict.getAsArray( this.name );
+            if ( array == null ) return null;
+            if ( array.size() % 8 != 0 ) return null;
+            int n = array.size() / 8;
+            String s = null;
+            for(int i=0; i<n; i++) {
+				float c[] = new float[8];
+				for(int j=0; i<8; i++) {
+					PdfNumber p = array.getAsNumber(i);
+					if (p == null) return null;
+					c[i] = p.floatValue();
+				}
+                QuadPoint q = new QuadPoint(c);
+                if (s == null) { s = q.toString();
+                } else { s = s + "," + q.toString(); }
+            }
+            return s;
+        }
+    }
+
     public static class ColorField extends Field {
         ColorField(String attr, String name) { super(attr, name); }
         public String getFrom( PdfDictionary dict ) {
@@ -203,11 +236,11 @@ public class Annotation {
         new StringField ("name","NM"),
         new RectField   ("rect","Rect"),
         new StringField ("title","T"),
-        new StringField   ("creationdate","CreationDate"),
+        new StringField ("creationdate","CreationDate"),
         new NumberField ("opacity","CA"),
         new StringField ("subject","Subj"),
         new StringField ("intent ","IT"),
-        // TODO: coords : QuadPoints
+        new CoordsField ("coords","QuadPoints"),
         // TODO: inreplyto : IRT.name
         new StringField ("replyType","RT"),
         new StringField ("icon","Name"),
@@ -246,15 +279,6 @@ public class Annotation {
     // omitted attributes for: embedded file, stream, file specification, 
     // destination syntax, remote go-to, launch, named action, URI, Mac OS file
 
-    //public static final Map<PdfName,String> subtypes;
-    //public static final Field[] fields = new Field[] {
-/*
-    static {
-       subtypes = new HashMap<PdfName,String>();
-       subtypes.add(
-    }
-*/
-
     public static final Map<PdfName, String> subtypes;
     static {
         HashMap<PdfName, String> map = new HashMap<PdfName, String>();
@@ -279,6 +303,9 @@ public class Annotation {
                 attrs.put(a.attr,value);
             }
         }
+
+        // some readers don't include a pointer to the page
+        if ( attrs.get("page") == null ) attrs.put("page",""+this.pageNum);
 
         String attrstring = "";
         for ( Map.Entry<String,String> attr : attrs.entrySet() ) {
@@ -322,7 +349,7 @@ public class Annotation {
      */
     public static void writeXFDF( PrintWriter out, Iterable<Annotation> annots ) {
         out.println( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" );
-        out.println( "<xfdf xmlns=\"http://ns.adobe.com/xfdf/\" xml:space=\"preserve\">" );
+        out.println( "<xfdf xmlns=\"http://ns.adobe.com/xfdf/\" xmlns:m=\"http://example.com\" xml:space=\"preserve\">" );
 
         // The following parts may be added as varargs
         // - optionally write <f href="Document.pdf"/>
