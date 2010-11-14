@@ -55,5 +55,20 @@ You can then copy the jar file to a place of your choice and run it via:
 
     $ java -jar target/marginalia-0.0.1dev-jar-with-dependencies.jar yourfile.pdf
 
+## Extracting text
+
+To extract annotated text, you can use the pdftotext command line tool from 
+poppler (maybe I better move from iText to poppler). For instance if you have
+an annotation on page 1 with:
+
+    rect="52.559917,437.8619,286.3729,528.27844"
+
+and page size is 595 x 842 pts (A4). Then the crop area can be calculated
+with `x = 52`, `y = 842 - 528.27 = 313`, `W = 233`, `H = 91`.
+
+    $ pdftotext -layout -nopgbrk -f 1 -l 1 -x 52 -y 313 -W 233 -H 91 your.pdf && cat your.txt
+
+Sure this should be automized, and it does not cover details.
+
 # Author
 Jakob Voss <jakob.voss@gbv.de>
