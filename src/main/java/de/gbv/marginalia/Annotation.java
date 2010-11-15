@@ -22,6 +22,10 @@ import java.util.HashMap;
 import java.util.Collections;
 import java.util.Set;
 
+import de.gbv.xml.SimpleXMLCreator;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -297,6 +301,69 @@ public class Annotation {
         subtypes = Collections.unmodifiableMap(map);
     }
 
+	/**
+     * Serialize the annotation in XML format.
+	 */
+    public void serializeXML(ContentHandler handler) throws SAXException {
+		SimpleXMLCreator xml = new SimpleXMLCreator( handler, namespaces );
+        Map<String,String> attrs = new HashMap<String,String>();
+
+        Set<PdfName> allkeys = this.dict.getKeys();
+        allkeys.remove( PdfName.TYPE );
+        allkeys.remove( PdfName.SUBTYPE );
+        allkeys.remove( PdfName.PARENT );
+        allkeys.remove( PdfName.CONTENTS );
+        allkeys.remove( PdfName.POPUP );
+
+        for ( Field a : this.fields ) {
+            String value = a.getFrom( this.dict );
+            if (value != null) { // TODO: encoding & exception
+                attrs.put(a.attr,value);
+                allkeys.remove( a.name );
+            }
+        }
+
+        PdfDictionary pg = getAsDictionary(this.dict,PdfName.P);
+        allkeys.remove( PdfName.P );
+		//CropBox=[0, 0, 595, 842]
+		//Rotate
+		//MediaBox=[0, 0, 595, 842]
+        // TODO: find out where page number is stored
+        if ( attrs.get("page") == null ) attrs.put("page",""+this.pageNum);
+
+        String element = subtypes.get(this.subtype);
+        if (element == null) { // TODO
+            element = this.subtype.toString();
+        }
+		if (element.equals("ink")) {
+			// TODO: Add inklist
+		}
+
+        xml.startElement( element, attrs );
+
+        if ( this.content != null && !this.content.equals("") ) {
+            // TODO: encode content if not UTF-8 ?
+            xml.contentElement( "content", content.toString() );
+        }
+        // TODO: contents-richtext
+        // TODO: popup
+/*
+		if ( this.popup != null ) {
+		  out.println("<!--popup>");
+		  for ( PdfName n : this.popup.getKeys() ) {
+			  out.println( n + "=" + this.popup.getDirectObject(n) );
+		  }
+		  out.println("</popup-->");
+		}
+*/
+        // remaining dictionary elements
+        /*for ( PdfName n : allkeys ) {
+			out.println( "<!--" + n + "=" + this.dict.getDirectObject(n) + "-->" );
+        }*/
+
+		xml.endElement();
+	}
+
     /**
      * Write the annotation in XFDF format.
      * @param output Where to write the XML to.
@@ -399,4 +466,11 @@ public class Annotation {
         out.println( "</annots>" );
         out.println( "</xfdf>" );
     }
+
+    public static final Map<String,String> namespaces;
+	static {
+		namespaces = new HashMap<String,String>();
+		namespaces.put("","http://ns.adobe.com/xfdf/");
+		namespaces.put("m","http://example.com/");
+	}
 }

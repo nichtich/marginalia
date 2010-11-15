@@ -10,7 +10,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 import java.util.Collection;
-import java.util.ArrayList;
+import java.util.List;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Iterator;
 
 import jargs.gnu.CmdLineParser;
@@ -29,6 +32,12 @@ import com.itextpdf.text.pdf.PdfReader;
 
 import com.itextpdf.text.pdf.parser.LocationTextExtractionStrategy;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
+
+import org.xml.sax.XMLReader;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import de.gbv.xml.SimpleXMLWriter;
+import de.gbv.xml.SimpleXMLCreator;
 
 /**
  * Marginalia command line client.
@@ -75,11 +84,16 @@ public class Marginalia {
      * @throws IOException
      */
     public static void inspect(PrintWriter writer, String filename)
-        throws IOException {
+        throws IOException, SAXException {
 //        writer.println(filename);
         writer.flush();
 
         PdfReader reader = new PdfReader(filename);
+
+        ContentHandler xmlhandler = new SimpleXMLWriter(writer);
+        xmlhandler.startDocument();
+
+        SimpleXMLCreator xml = new SimpleXMLCreator( xmlhandler, Annotation.namespaces, true );
 
 /*
         writer.println("Number of pages: "+reader.getNumberOfPages());
@@ -100,11 +114,24 @@ public class Marginalia {
         writer.println();
         writer.flush();
 */
-        Collection annots = new ArrayList();
+        List<Annotation> annots = new LinkedList<Annotation>();
+        xml.startElement("annots");
 
+        xml.startElement("m","pages");
         for (int pageNum=1; pageNum<=reader.getNumberOfPages(); pageNum++) {
-
             PdfDictionary pageDic = reader.getPageN(pageNum);
+
+            Map <String,String> attr = new HashMap<String,String>();
+            attr.put("number", ""+pageNum );
+            attr.put("rotate", ""+reader.getPageRotation(pageNum) );
+
+            Rectangle mediabox = reader.getPageSize(pageNum);
+            attr.put("left", ""+mediabox.getLeft());
+            attr.put("bottom", ""+mediabox.getBottom() );
+            attr.put("right", ""+mediabox.getRight());
+            attr.put("top", ""+mediabox.getTop());
+
+            xml.contentElement("m","page","",attr);
 
             PdfArray rawannots = pageDic.getAsArray(PdfName.ANNOTS);
             if ( rawannots == null || rawannots.isEmpty() ) {
@@ -134,12 +161,14 @@ public class Marginalia {
             writer.println(fulltext);
             */
         }
+        xml.endElement();
 
-		// TODO: add page information (page size and orientation)
+        for (Annotation a : annots) {
+            a.serializeXML( xmlhandler );
+        }
+        // TODO: add page information (page size and orientation)
 
-        Annotation.writeXFDF( writer, annots );
-
-        writer.flush();
+        xml.endAll();
     }
 
     // helper class (to be removed)
