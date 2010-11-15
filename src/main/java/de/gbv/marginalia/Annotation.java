@@ -20,6 +20,7 @@ import java.io.PrintWriter;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Collections;
+import java.util.Set;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -34,27 +35,25 @@ import org.w3c.dom.Element;
 public class Annotation {
     private PdfDictionary dict;
 
-    // mandatory fields
-    protected PdfName subtype;
+    protected PdfName subtype;   // mandatory
+    protected PdfString content; // optional
+    protected PdfDictionary popup; // optional
 
-    // optional fields
-    protected PdfString content;
-    protected PdfArray coords;
-
-	protected int pageNum;
+    protected int pageNum;
 
     /**
      * Constructs a new Annotation from a given PdfDictionary.
      * Of course the PdfDictionary should contain an annotation.
      */
-    //public Annotation(PdfDictionary annot) { this.Annotation(annot,0); }
+    // public Annotation(PdfDictionary annot) { this.Annotation(annot,0); }
     public Annotation(PdfDictionary annot, int pageNum) {
 		this.pageNum = pageNum;
         this.subtype  = annot.getAsName(PdfName.SUBTYPE);
 // text | caret | freetext | fileattachment | highlight | ink | line | link | circle | square |
 // polygon | polyline | sound | squiggly | stamp | strikeout | underline 
 
-        this.content  = annot.getAsString(PdfName.CONTENTS); // optional
+        this.content = annot.getAsString(PdfName.CONTENTS);
+        this.popup = getAsDictionary(annot,PdfName.POPUP);
 
         // TODO: skipped fields:
         // getAsDictionary(annot,PdfName.AP); // alternative to coords!
@@ -62,12 +61,7 @@ public class Annotation {
         // getAsDictionary(annot,PdfName.A); // action
         // getAsDictionary(annot,PdfName.A); // additional action
 
-        // this.popup = getAsDictionary(annot,PdfName.POPUP);
-        // only for popup:
-
         // annot.getAsNumber(PdfName.STRUCTPARENT);
-
-        this.coords = annot.getAsArray(PdfName.QUADPOINTS);
 
         // Since PDF 1.5: 
         // RC = contents-richtext
@@ -142,6 +136,11 @@ public class Annotation {
     public static class QuadPoint {
         protected float c[];
         QuadPoint(float c[]) { this.c = c; }
+// TODO: We may shuffle the coordinates. PDF spec. says:
+// In Acrobat 4.0 and later versions, the text is oriented with respect to the
+// vertex with the smallest y value (or the leftmost of those, if there are two
+// such vertices) and the next vertex in a counterclockwise direction, regard-
+// less of whether these are the first two points in the QuadPoints array.
         public String toString() {
             return c[0]+","+c[1]+","+c[2]+","+c[3]+","
                  + c[4]+","+c[5]+","+c[6]+","+c[7];
@@ -158,10 +157,10 @@ public class Annotation {
             String s = null;
             for(int i=0; i<n; i++) {
 				float c[] = new float[8];
-				for(int j=0; i<8; i++) {
-					PdfNumber p = array.getAsNumber(i);
+				for(int j=0; j<8; j++) {
+					PdfNumber p = array.getAsNumber(j);
 					if (p == null) return null;
-					c[i] = p.floatValue();
+					c[j] = p.floatValue();
 				}
                 QuadPoint q = new QuadPoint(c);
                 if (s == null) { s = q.toString();
@@ -176,12 +175,20 @@ public class Annotation {
         public String getFrom( PdfDictionary dict ) {
             PdfArray array = dict.getAsArray( this.name );
             if ( array == null ) return null;
-            // TODO
+			if ( array.size() != 3 ) return null;
+			String s = "#";
+			for( int i=0; i<3; i++) {
+				PdfNumber p = array.getAsNumber(i);
+				if (p == null) return null;
+				int c = (int)(255 * p.floatValue());
+				if (c < 16) s += "0";
+				s += Integer.toHexString( c );
+			}
             // contains an array of three numbers between 0.0 and 1.0 in the
             // deviceRGB color space. In XFDF, each color is mapped to a value
             // between 0 and 255 then converted to hexadecimal (00 to FF)
             // this.setAttr("color",s);  // TODO: => #xxxxxx
-            return null;
+            return s;
         }
     }
 
@@ -297,14 +304,27 @@ public class Annotation {
     public void writeXML( PrintWriter out ) {
         Map<String,String> attrs = new HashMap<String,String>();
 
+        Set<PdfName> allkeys = this.dict.getKeys();
+        allkeys.remove( PdfName.TYPE );
+        allkeys.remove( PdfName.SUBTYPE );
+        allkeys.remove( PdfName.PARENT );
+        allkeys.remove( PdfName.CONTENTS );
+        allkeys.remove( PdfName.POPUP );
+
         for ( Field a : this.fields ) {
             String value = a.getFrom( this.dict );
             if (value != null) { // TODO: encoding & exception
                 attrs.put(a.attr,value);
+                allkeys.remove( a.name );
             }
         }
 
-        // some readers don't include a pointer to the page
+        PdfDictionary pg = getAsDictionary(this.dict,PdfName.P);
+        allkeys.remove( PdfName.P );
+		//CropBox=[0, 0, 595, 842]
+		//Rotate
+		//MediaBox=[0, 0, 595, 842]
+        // TODO: find out where page number is stored
         if ( attrs.get("page") == null ) attrs.put("page",""+this.pageNum);
 
         String attrstring = "";
@@ -319,6 +339,9 @@ public class Annotation {
         if (element == null) { // TODO
             element = this.subtype.toString();
         }
+		if (element.equals("ink")) {
+			// TODO: Add inklist
+		}
 
         // TODO: this.content may be null. Either use content or rich-content
         if (this.content != null && !this.content.equals("")) {
@@ -326,8 +349,20 @@ public class Annotation {
         }
             // TODO: contents-richtext
             // TODO: popup
-
         out.println("<"+element+attrstring+">"+innerstring+"</"+element+">");
+
+		if ( this.popup != null ) {
+		  out.println("<!--popup>");
+		  for ( PdfName n : this.popup.getKeys() ) {
+			  out.println( n + "=" + this.popup.getDirectObject(n) );
+		  }
+		  out.println("</popup-->");
+		}
+
+        // remaining dictionary elements
+        for ( PdfName n : allkeys ) {
+			out.println( "<!--" + n + "=" + this.dict.getDirectObject(n) + "-->" );
+        }
     }
 
     /**
@@ -354,6 +389,8 @@ public class Annotation {
         // The following parts may be added as varargs
         // - optionally write <f href="Document.pdf"/>
         // - optionally write <ids original="ID" modified="ID" />
+
+		// TODO: optionally add page information (size, orientation, label, number)
 
         out.println( "<annots>" );
         for( Annotation annot : annots ) {

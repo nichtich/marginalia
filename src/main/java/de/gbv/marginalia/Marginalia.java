@@ -135,6 +135,8 @@ public class Marginalia {
             */
         }
 
+		// TODO: add page information (page size and orientation)
+
         Annotation.writeXFDF( writer, annots );
 
         writer.flush();
