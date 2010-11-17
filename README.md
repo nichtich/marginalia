@@ -70,17 +70,12 @@ with `x = 52`, `y = 842 - 528.27 = 313`, `W = 233`, `H = 91`.
 
 Sure this should be automized, and it does not cover details.
 
-## Next steps
+## Converting annotations to SVG
 
-We could add custom XML elements to fix the ill-designed XFDF format.
-The following format could also include the extracted text.
+The XML output contains some custom Marginalia elements. With these and the 
+script `marginalia2svg.xsl` you can convert extracted annotations to SVG.
 
-	<highlight ...>
-	  <m:text>...</m:text>
-	  <m:quad x1="" y1="" x2="" y2="" x3="" y3="" x4="" y4="">...</m:quad>
-	  <m:quad x1="" y1="" x2="" y2="" x3="" y3="" x4="" y4="">...</m:quad>
-	  ...
-	</highlight>
+    $ xsltproc marginalia2svg.xsl youroutput.xml
 
 # Author
 Jakob Voss <jakob.voss@gbv.de>

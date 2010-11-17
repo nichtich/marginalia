@@ -160,12 +160,12 @@ public class Annotation {
             int n = array.size() / 8;
             String s = null;
             for(int i=0; i<n; i++) {
-				float c[] = new float[8];
-				for(int j=0; j<8; j++) {
-					PdfNumber p = array.getAsNumber(j);
-					if (p == null) return null;
-					c[j] = p.floatValue();
-				}
+		float c[] = new float[8];
+		for(int j=0; j<8; j++) {
+		    PdfNumber p = array.getAsNumber(i*8+j);
+		    if (p == null) return null;
+     		    c[j] = p.floatValue();
+		}
                 QuadPoint q = new QuadPoint(c);
                 if (s == null) { s = q.toString();
                 } else { s = s + "," + q.toString(); }
@@ -239,41 +239,43 @@ public class Annotation {
     /**
      * Annotation attributes as XFDF attributes and PDF keys.
      */
-    public static final Field[] fields = new Field[] {
-        new NumberField ("page","Page"),
-        new ColorField  ("color","C"),
-        new StringField ("date","M"),
-        new FlagField   ("flags","F"),
-        new StringField ("name","NM"),
-        new RectField   ("rect","Rect"),
-        new StringField ("title","T"),
-        new StringField ("creationdate","CreationDate"),
-        new NumberField ("opacity","CA"),
-        new StringField ("subject","Subj"),
-        new StringField ("intent ","IT"),
-        new CoordsField ("coords","QuadPoints"),
+    public static final Map<String,Field> FIELDS;
+    static {
+        FIELDS = new HashMap<String,Field>();
+        FIELDS.put("page",new NumberField ("page","Page"));
+        FIELDS.put("color",new ColorField  ("color","C"));
+        FIELDS.put("date",new StringField ("date","M"));
+        FIELDS.put("flags",new FlagField   ("flags","F"));
+        FIELDS.put("name",new StringField ("name","NM"));
+        FIELDS.put("rect",new RectField   ("rect","Rect"));
+        FIELDS.put("title",new StringField ("title","T"));
+        FIELDS.put("creationdate",new StringField ("creationdate","CreationDate"));
+        FIELDS.put("opacity",new NumberField ("opacity","CA"));
+        FIELDS.put("subject",new StringField ("subject","Subj"));
+        FIELDS.put("intent",new StringField ("intent ","IT"));
+        FIELDS.put("coords",new CoordsField ("coords","QuadPoints"));
         // TODO: inreplyto : IRT.name
-        new StringField ("replyType","RT"),
-        new StringField ("icon","Name"),
-        new StringField ("state","State"),
-        new StringField ("statemodel","StateModel"),
+        FIELDS.put("replyTo",new StringField ("replyType","RT"));
+        FIELDS.put("icon",new StringField ("icon","Name"));
+        FIELDS.put("state",new StringField ("state","State"));
+        FIELDS.put("statemodel",new StringField ("statemodel","StateModel"));
         // TODO: start & end : L
         // TODO: head & tail : LE
-        new ColorField  ("interior-color","IC"),
-        new NumberField ("leaderLength","LL"),
-        new NumberField ("leaderExtend","LLE"),
-        new StringField ("caption","Cap"),
-        new NumberField ("leader-offset","LLO"),
-        new StringField ("caption-style","CP"),
+        FIELDS.put("interior-color",new ColorField  ("interior-color","IC"));
+        FIELDS.put("leaderLength",new NumberField ("leaderLength","LL"));
+        FIELDS.put("leaderExtend",new NumberField ("leaderExtend","LLE"));
+        FIELDS.put("caption",new StringField ("caption","Cap"));
+        FIELDS.put("leader-offset",new NumberField ("leader-offset","LLO"));
+        FIELDS.put("caption-style",new StringField ("caption-style","CP"));
         // TODO: caption-offset-h & caption-offset-v : C0
-        new RectField   ("fringe","RD"),
+        FIELDS.put("fringe",new RectField   ("fringe","RD"));
         // TODO: symbol : Sy with none <=> None, paragraph <=> P
         // TODO: justification : Q with left <=> 0, centered <=> 1, right <=> 2
-        new NumberField ("rotation","Rotate"),
+        FIELDS.put("rotation",new NumberField ("rotation","Rotate"));
         // omitted sound annotation fields: bits, channels, encoding, rate
-        // TODO: new BooleanField ("open","Open"), yes / no ?
-        new StringField ("Highlight","H"),
-        new StringField ("overlay-text","OverlayText")
+        // TODO: FIELDS.put("",new BooleanField ("open","Open")); yes / no ?
+        FIELDS.put("Highlight",new StringField ("Highlight","H"));
+        FIELDS.put("overlay-text",new StringField ("overlay-text","OverlayText"));
         // TODO: overlay-text-repeat : Repeat = true / false
     };
 
@@ -301,12 +303,13 @@ public class Annotation {
         subtypes = Collections.unmodifiableMap(map);
     }
 
-	/**
+    /**
      * Serialize the annotation in XML format.
-	 */
+     * The annotation is emitted as stream of SAX events to a ContentHandler.
+     * The XML is XFDF with additional Marginalia elements in its own namespace.
+     */
     public void serializeXML(ContentHandler handler) throws SAXException {
-		SimpleXMLCreator xml = new SimpleXMLCreator( handler, namespaces );
-        Map<String,String> attrs = new HashMap<String,String>();
+	SimpleXMLCreator xml = new SimpleXMLCreator( handler, namespaces );
 
         Set<PdfName> allkeys = this.dict.getKeys();
         allkeys.remove( PdfName.TYPE );
@@ -315,11 +318,13 @@ public class Annotation {
         allkeys.remove( PdfName.CONTENTS );
         allkeys.remove( PdfName.POPUP );
 
-        for ( Field a : this.fields ) {
-            String value = a.getFrom( this.dict );
+        Map<String,String> attrs = new HashMap<String,String>();
+        for ( String aName : this.FIELDS.keySet() ) {
+            Field f = this.FIELDS.get(aName);
+            String value = f.getFrom( this.dict );
             if (value != null) { // TODO: encoding & exception
-                attrs.put(a.attr,value);
-                allkeys.remove( a.name );
+                attrs.put( aName, value );
+//                allkeys.remove( f.name );
             }
         }
 
@@ -335,11 +340,40 @@ public class Annotation {
         if (element == null) { // TODO
             element = this.subtype.toString();
         }
-		if (element.equals("ink")) {
-			// TODO: Add inklist
-		}
 
         xml.startElement( element, attrs );
+
+	if (element.equals("ink")) {
+	    PdfArray inklist = this.dict.getAsArray(new PdfName("InkList"));
+            if (inklist != null) {
+                xml.startElement("inklist");
+                for(int i=0; i<inklist.size(); i++) {
+		    PdfArray pathArray = inklist.getAsArray(i);
+                    String s = "";
+                    for(int j=0; j<pathArray.size(); j+=2) {
+                        if (j>0) s+= ";";
+                        s += ""+pathArray.getAsNumber(j).floatValue()+",";
+                        s += ""+pathArray.getAsNumber(j+1).floatValue();
+                    }
+                    xml.contentElement("gesture",s);
+                }
+                xml.endElement();
+            }
+	}
+
+	if ( attrs.get("rect") != null ) {
+            Map<String,String> a = new HashMap<String,String>();
+            RectField rf = (RectField)this.FIELDS.get("rect");
+            PdfRectangle r = null;
+            if (rf != null) r = (PdfRectangle)rf.getObjectFrom( this.dict );
+            if (r != null) {
+              a.put("left", ""+r.left());
+              a.put("bottom", ""+r.bottom() );
+              a.put("right", ""+r.right());
+              a.put("top", ""+r.top());
+              xml.emptyElement("m","rect",a);
+           }
+	}
 
         if ( this.content != null && !this.content.equals("") ) {
             // TODO: encode content if not UTF-8 ?
@@ -357,79 +391,15 @@ public class Annotation {
 		}
 */
         // remaining dictionary elements
-        /*for ( PdfName n : allkeys ) {
-			out.println( "<!--" + n + "=" + this.dict.getDirectObject(n) + "-->" );
-        }*/
-
-		xml.endElement();
-	}
-
-    /**
-     * Write the annotation in XFDF format.
-     * @param output Where to write the XML to.
-     */
-    public void writeXML( PrintWriter out ) {
-        Map<String,String> attrs = new HashMap<String,String>();
-
-        Set<PdfName> allkeys = this.dict.getKeys();
-        allkeys.remove( PdfName.TYPE );
-        allkeys.remove( PdfName.SUBTYPE );
-        allkeys.remove( PdfName.PARENT );
-        allkeys.remove( PdfName.CONTENTS );
-        allkeys.remove( PdfName.POPUP );
-
-        for ( Field a : this.fields ) {
-            String value = a.getFrom( this.dict );
-            if (value != null) { // TODO: encoding & exception
-                attrs.put(a.attr,value);
-                allkeys.remove( a.name );
-            }
+/*
+        for ( PdfName name : allkeys ) {
+            Map<String,String> a = new HashMap<String,String>();
+            a.put("name",name.toString());
+            a.put("value",this.dict.getDirectObject(name).toString());
+            xml.emptyElement( "m","unknown", a );
         }
-
-        PdfDictionary pg = getAsDictionary(this.dict,PdfName.P);
-        allkeys.remove( PdfName.P );
-		//CropBox=[0, 0, 595, 842]
-		//Rotate
-		//MediaBox=[0, 0, 595, 842]
-        // TODO: find out where page number is stored
-        if ( attrs.get("page") == null ) attrs.put("page",""+this.pageNum);
-
-        String attrstring = "";
-        for ( Map.Entry<String,String> attr : attrs.entrySet() ) {
-            attrstring += "\n  " + attr.getKey() + "=\"" + attr.getValue() + "\"";
-        }
-
-        String innerstring = "";
-        // TODO: character encoding not UTF-8? escape?
-
-        String element = subtypes.get(this.subtype);
-        if (element == null) { // TODO
-            element = this.subtype.toString();
-        }
-		if (element.equals("ink")) {
-			// TODO: Add inklist
-		}
-
-        // TODO: this.content may be null. Either use content or rich-content
-        if (this.content != null && !this.content.equals("")) {
-            innerstring = "\n  <content>" + content  + "</content>\n";
-        }
-            // TODO: contents-richtext
-            // TODO: popup
-        out.println("<"+element+attrstring+">"+innerstring+"</"+element+">");
-
-		if ( this.popup != null ) {
-		  out.println("<!--popup>");
-		  for ( PdfName n : this.popup.getKeys() ) {
-			  out.println( n + "=" + this.popup.getDirectObject(n) );
-		  }
-		  out.println("</popup-->");
-		}
-
-        // remaining dictionary elements
-        for ( PdfName n : allkeys ) {
-			out.println( "<!--" + n + "=" + this.dict.getDirectObject(n) + "-->" );
-        }
+*/
+        xml.endElement();
     }
 
     /**
@@ -444,29 +414,7 @@ public class Annotation {
         return (PdfDictionary)obj;
     }
 
-    /**
-     * Write a set of annotations as XFDF document.
-     * @param output Where to write the XML to.
-     * @param annots Which annotations to write.
-     */
-    public static void writeXFDF( PrintWriter out, Iterable<Annotation> annots ) {
-        out.println( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" );
-        out.println( "<xfdf xmlns=\"http://ns.adobe.com/xfdf/\" xmlns:m=\"http://example.com\" xml:space=\"preserve\">" );
-
-        // The following parts may be added as varargs
-        // - optionally write <f href="Document.pdf"/>
-        // - optionally write <ids original="ID" modified="ID" />
-
-		// TODO: optionally add page information (size, orientation, label, number)
-
-        out.println( "<annots>" );
-        for( Annotation annot : annots ) {
-            annot.writeXML( out );
-        }
-        out.println( "</annots>" );
-        out.println( "</xfdf>" );
-    }
-
+       
     public static final Map<String,String> namespaces;
 	static {
 		namespaces = new HashMap<String,String>();

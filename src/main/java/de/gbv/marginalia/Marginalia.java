@@ -117,6 +117,10 @@ public class Marginalia {
         List<Annotation> annots = new LinkedList<Annotation>();
         xml.startElement("annots");
 
+       // TODO: The following elements may be added:
+       // - optionally write <f href="Document.pdf"/>
+       // - optionally write <ids original="ID" modified="ID" />
+ 
         xml.startElement("m","pages");
         for (int pageNum=1; pageNum<=reader.getNumberOfPages(); pageNum++) {
             PdfDictionary pageDic = reader.getPageN(pageNum);
